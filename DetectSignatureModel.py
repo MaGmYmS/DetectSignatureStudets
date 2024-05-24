@@ -1,3 +1,4 @@
+import enum
 import os
 import random
 
@@ -6,6 +7,11 @@ import numpy as np
 
 from ultralytics import YOLO
 from SelfDevelopment import delete_files_in_folder
+
+
+class PredictClass(enum.Enum):
+    FullName = "Full-name"
+    Signature = "Signature"
 
 
 class DetectSignatureModel:
@@ -71,7 +77,8 @@ class DetectSignatureModel:
         index_in_stack = set()
         row = -1
         for class_index_1, (x_min_1, y_min_1, x_max_1, y_max_1) in enumerate(results_predicted):
-            if class_index_1 not in index_in_stack and class_names[class_index_1] == "Full-name":
+            # Нашли роспись, значит где-то рядом есть имя.
+            if class_index_1 not in index_in_stack and class_names[class_index_1] == PredictClass.Signature.value:
                 row += 1
                 data_in_row.append({unique_class_names[0]: [], unique_class_names[1]: []})
                 data_in_row[row][class_names[class_index_1]].append((x_min_1, y_min_1, x_max_1, y_max_1))
@@ -80,10 +87,10 @@ class DetectSignatureModel:
                 continue
 
             for class_index_2, (x_min_2, y_min_2, x_max_2, y_max_2) in enumerate(results_predicted):
-                if (abs(y_min_1 - y_min_2) < 15  # Находятся на одной прямой
+                if (abs(y_min_2 - y_min_1) < 15  # Находятся на одной прямой
                         and class_index_2 not in index_in_stack  # Не просмотрена
-                        and abs(x_max_1 - x_min_2) < 120  # Находятся близко друг к другу
-                        and class_names[class_index_2] == "Signature"):  # Это роспись
+                        and abs(x_max_2 - x_min_1) < 150  # Находятся близко друг к другу
+                        and class_names[class_index_2] == PredictClass.FullName.value):  # Это имя
                     data_in_row[row][class_names[class_index_2]].append((x_min_2, y_min_2, x_max_2, y_max_2))
                     index_in_stack.add(class_index_2)
 
@@ -95,7 +102,7 @@ class DetectSignatureModel:
         image_copy = image.copy()
 
         # Генерируем уникальные цвета для каждого элемента в data
-        colors = self._generate_colors(len(data))
+        colors = self.__generate_colors(len(data))
 
         for idx, item in enumerate(data):
             color = colors[idx]
@@ -114,7 +121,7 @@ class DetectSignatureModel:
             cv2.destroyAllWindows()
 
     @staticmethod
-    def _generate_colors(num_colors):
+    def __generate_colors(num_colors):
         # Генерируем случайные цвета
         colors = []
         for _ in range(num_colors):
