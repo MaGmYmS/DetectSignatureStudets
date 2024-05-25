@@ -5,6 +5,7 @@ from difflib import get_close_matches
 import pytesseract
 import cv2
 import numpy as np
+from matplotlib import pyplot as plt
 
 from ultralytics import YOLO
 from SelfDevelopment import delete_files_in_folder
@@ -118,9 +119,9 @@ class DetectSignatureModel:
                 continue
 
             for class_index_2, (x_min_2, y_min_2, x_max_2, y_max_2) in enumerate(results_predicted):
-                if (abs(y_min_2 - y_min_1) < 15  # Находятся на одной прямой
+                if (abs(y_min_2 - y_min_1) < 30  # Находятся на одной прямой
                         and class_index_2 not in index_in_stack  # Не просмотрена
-                        and abs(x_max_2 - x_min_1) < 150  # Находятся близко друг к другу
+                        and abs(x_max_2 - x_min_1) < 250  # Находятся близко друг к другу
                         and class_names[class_index_2] == PredictClass.FullName.value):  # Это имя
                     data_in_row[row][class_names[class_index_2]].append((x_min_2, y_min_2, x_max_2, y_max_2))
                     index_in_stack.add(class_index_2)
@@ -204,10 +205,14 @@ class DetectSignatureModel:
                     # Добавляем текст метки
                     cv2.putText(image_copy, key, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-        # Показываем изображение
-        cv2.imshow('Result', image_copy)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # Конвертируем изображение из BGR в RGB для правильного отображения в Matplotlib
+        image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB)
+
+        # Показываем изображение с помощью Matplotlib
+        plt.figure(figsize=(12, 8))
+        plt.imshow(image_copy)
+        plt.axis('off')
+        plt.show()
 
     def __visualise_result_predicted(self, image, data):
         # Генерируем уникальные цвета для каждого элемента в data
@@ -224,10 +229,14 @@ class DetectSignatureModel:
                     # Добавляем текст метки
                     cv2.putText(image_copy, key, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-            # Показываем изображение
-            cv2.imshow('Result', image_copy)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+                # Конвертируем изображение из BGR в RGB для правильного отображения в Matplotlib
+                image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB)
+
+                # Показываем изображение с помощью Matplotlib
+                plt.figure(figsize=(12, 8))
+                plt.imshow(image_copy)
+                plt.axis('off')
+                plt.show()
 
     @staticmethod
     def __generate_colors(num_colors):
