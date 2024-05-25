@@ -68,7 +68,7 @@ def auto_annotate_dataset(img_list, model, directory, train_images_path):
         # записываем файл аннотации в папку базы изображений для импорта
 
         txt_name = img_name.replace(img_extension, ".txt")
-        with open(os.path.join('self development dataset/train/labels', txt_name), 'w') as f:
+        with open(os.path.join(r"Data\self_development_dataset/train/labels", txt_name), 'w') as f:
             for line in annot_lines:
                 f.write(line)
                 f.write('\n')
@@ -78,15 +78,15 @@ def main(number_train):
     my_best_model = f"runs/detect/train{number_train}/weights/best.pt"  # Загружаем модель
     model = YOLO(my_best_model)
     # Отсюда берем кадры
-    directory = r"self development images"
-    train_images_path = 'self development dataset/train/images'  # Сюда складываем
+    directory = r"Data\self_development_images"
+    train_images_path = r"Data\self_development_dataset/train/images"  # Сюда складываем
     img_list = os.listdir(directory)
     print(f"В папке имеется {len(img_list)} изображений")
 
-    delete_files_in_folder('self development dataset/train/images')
-    delete_files_in_folder('self development dataset/train/labels')
+    delete_files_in_folder(r"Data\self_development_dataset/train/images")
+    delete_files_in_folder(r"Data\self_development_dataset/train/labels")
     auto_annotate_dataset(img_list, model, directory, train_images_path)
 
 
 if __name__ == "__main__":
-    main(number_train=29)
+    main(number_train=30)

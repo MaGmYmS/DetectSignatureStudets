@@ -14,8 +14,8 @@ np.random.seed(42)
 
 
 class CreateCustomYOLOv8Model:
-    def __init__(self):
-        self.dataset_version = 1
+    def __init__(self, dataset_version):
+        self.dataset_version = dataset_version
         self.rf = Roboflow(api_key="AmQ0vHqaiNHr6SeXUAWb")
         self.workspace_name = "detected"
         self.dataset_name = "signatures-of-moiais-students-3"
@@ -135,7 +135,7 @@ class CreateCustomYOLOv8Model:
 
     # endregion
 
-    def train_my_model(self, number_epoch=50, image_size=640):
+    def train_my_model(self, model_size="n", number_epoch=50, image_size=640):
         """
         Обучает модель YOLOv8 на предоставленных данных.
 
@@ -146,7 +146,7 @@ class CreateCustomYOLOv8Model:
         """
         self._update_work_directory_in_data_yaml()
 
-        name_model = "yolov8n.pt"
+        name_model = f"yolov8{model_size}.pt"
         train_model = YOLO(name_model)
         train_model.train(data=f"{self.dataset_name}-{self.dataset_version}/data.yaml",
                           epochs=number_epoch, imgsz=image_size)

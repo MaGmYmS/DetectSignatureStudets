@@ -3,7 +3,6 @@
 /signatures-of-MOiAIS-students-3-1/
 /ultralytics/
 /yolov5/
-/self development dataset/
 /runs/detect/train2/
 /runs/detect/train3/
 /runs/detect/train4/
@@ -32,7 +31,8 @@
 /runs/detect/train27/
 /runs/detect/train28/
 /Lib/
-/cropped_images/
 /Scripts/
 /share/
-/create_dataset_with_signature/
+/Data/create_dataset_with_signature/
+/runs/detect/train/
+/signatures-of-MOiAIS-students-3-2/

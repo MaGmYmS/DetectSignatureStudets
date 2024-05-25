@@ -101,32 +101,7 @@ class DetectSignatureModel:
             result_array.append((x_min, y_min, x_max, y_max))
         return result_array, class_names
 
-    def __crop_and_save_image(self, image, clean_output_dir=False):
-        output_dir = 'cropped_images'
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        if clean_output_dir:
-            delete_files_in_folder(output_dir)
-
-        results_predicted, class_names = self.__predict_detect_model(image)
-
-        for class_index, (x_min, y_min, x_max, y_max) in enumerate(results_predicted):
-            cropped_img = image[y_min:y_max, x_min:x_max]  # Вырезаем область из изображения
-            class_name = class_names[class_index]  # Получаем имя класса
-
-            # Сохраняем вырезанное изображение с уникальным именем
-            output_path = os.path.join(output_dir, f"{class_name}_{class_index}.jpg")
-            cv2.imwrite(output_path, cropped_img)
-
-            print(f"Saved cropped image {output_path}")
-
-    def get_result_predict(self, image, clean_output_dir=False):
-        output_dir = 'dataset'
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        if clean_output_dir:
-            delete_files_in_folder(output_dir)
-
+    def get_result_predict(self, image, visualise=False):
         results_predicted, class_names = self.__predict_detect_model(image)
         unique_class_names = np.unique(class_names)
         data_in_row = []
@@ -150,12 +125,14 @@ class DetectSignatureModel:
                     data_in_row[row][class_names[class_index_2]].append((x_min_2, y_min_2, x_max_2, y_max_2))
                     index_in_stack.add(class_index_2)
 
-        # self.__visualise_all_result_predicted(image, data_in_row)
+        if visualise:
+            self.__visualise_all_result_predicted(image, data_in_row)
         # self.__visualise_result_predicted(image, data_in_row)
         print(f"Найдено {len(data_in_row)} сигнатур")
         return data_in_row
 
-    def create_dataset_with_signature(self, image_dir="data 2", base_dir="create_dataset_with_signature"):
+    def create_dataset_with_signature(self, image_dir=r"Data\data_2", base_dir=r"Data\create_dataset_with_signature",
+                                      visualise=False):
         delete_files_in_folder(base_dir)
         # Создаем базовую директорию, если она не существует
         os.makedirs(base_dir, exist_ok=True)
@@ -166,10 +143,9 @@ class DetectSignatureModel:
                 print(f"Обрабатываю изображение {filename}\n")
                 image_path = os.path.join(image_dir, filename)
                 image = cv2.imread(image_path)
-
                 # Проверяем, удалось ли загрузить изображение
                 if image is not None:
-                    result_predict = self.get_result_predict(image)
+                    result_predict = self.get_result_predict(image, visualise=visualise)
                     self.__create_dataset_with_signature(image, data=result_predict, base_dir=base_dir)
                 else:
                     print(f"Не удалось загрузить изображение: {image_path}")
@@ -262,3 +238,54 @@ class DetectSignatureModel:
             colors.append(color)
         return colors
     # endregion
+
+    @staticmethod
+    def __resize_image(image, target_width, target_height):
+        """
+        Изменяет размер изображения до указанных ширины и высоты.
+
+        :param image: исходное изображение (numpy массив)
+        :param target_width: целевая ширина
+        :param target_height: целевая высота
+        :return: изображение с измененным размером
+        """
+        return cv2.resize(image, (target_width, target_height), interpolation=cv2.INTER_AREA)
+
+    def resize_images_in_folder(self, input_folder, output_folder, target_width=1920, target_height=1080):
+        """
+        Изменяет размер всех изображений в папке до указанных ширины и высоты и сохраняет их в другую папку.
+
+        :param input_folder: путь к папке с исходными изображениями
+        :param output_folder: путь к папке для сохранения измененных изображений
+        :param target_width: целевая ширина (по умолчанию 1920)
+        :param target_height: целевая высота (по умолчанию 1080)
+        """
+        # Создаем выходную папку, если она не существует
+        os.makedirs(output_folder, exist_ok=True)
+
+        # Проходим по всем файлам в входной папке
+        for filename in os.listdir(input_folder):
+            # Полный путь к файлу
+            input_path = os.path.join(input_folder, filename)
+
+            # Проверяем, является ли файл изображением
+            if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp')):
+                try:
+                    # Считываем изображение с помощью OpenCV
+                    image = cv2.imread(input_path)
+
+                    # Проверяем, удалось ли загрузить изображение
+                    if image is not None:
+                        # Изменяем размер изображения
+                        resized_image = self.__resize_image(image, target_width, target_height)
+
+                        # Полный путь к выходному файлу
+                        output_path = os.path.join(output_folder, filename)
+
+                        # Сохраняем измененное изображение
+                        cv2.imwrite(output_path, resized_image)
+                        print(f"Изображение сохранено по пути: {output_path}")
+                    else:
+                        print(f"Не удалось загрузить изображение: {input_path}")
+                except Exception as e:
+                    print(f"Не удалось обработать файл {input_path}: {e}")
