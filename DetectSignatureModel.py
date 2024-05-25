@@ -1,7 +1,8 @@
 import enum
 import os
 import random
-
+from difflib import get_close_matches
+import pytesseract
 import cv2
 import numpy as np
 
@@ -19,8 +20,63 @@ class DetectSignatureModel:
         my_best_model = f"runs/detect/train{number_train}/weights/best.pt"  # Загружаем модель
         model = YOLO(my_best_model)
         self.model = model
+        self.full_name_all_people = [
+            "Абдиреуков Самат Талгатулы",
+            "Абушев Хасан Ибрагимович",
+            "Ануфриев Никита Александрович",
+            "Асадулин Руслан Рамилевич",
+            "Бессонова Софья Денисовна",
+            "Бовыкина Екатерина Евгеньевна",
+            "Василец Анастасия Артемовна",
+            "Власов Сергей Евгеньевич",
+            "Галкин Данил Вячеславович",
+            "Герасимов Александр Владимирович",
+            "Гиясов Никита Рушенович",
+            "Голованов Сергей Евгеньевич",
+            "Гордиенко Андрей Вячеславович",
+            "Гуртовенко Татьяна Николаевна",
+            "Демухаметов Павел Насипович",
+            "Ершов Александр Андреевич",
+            "Жиряков Валентин Станиславович",
+            "Жменько Артём Юрьевич",
+            "Загайнова Евгения Олеговна",
+            "Зарембо Яков Андреевич",
+            "Земсков Никита Александрович",
+            "Иванова Дарья Владимировна",
+            "Калимова Алтынай Есенбаевна",
+            "Кириченко Денис Дмитриевич",
+            "Киселева Анастасия Андреевна",
+            "Кобылкина Анна Андреевна",
+            "Колесников Дмитрий Андреевич",
+            "Кондратьев Илья Владимирович",
+            "Коняев Илья Алексеевич",
+            "Копырин Евгений Александрович",
+            "Кузнецов Виктор Вячеславович",
+            "Кузьмин Артём Андреевич",
+            "Максимюк Александр Евгеньевич",
+            "Марочкина Виктория Витальевна",
+            "Неткачев Павел Иванович",
+            "Низамов Артем Рустамович",
+            "Потехин Илья Романович",
+            "Прощенко Алексей Александрович",
+            "Сагадеев Артур Ринатович",
+            "Серов Никита Сергеевич",
+            "Силин Никита Валерьевич",
+            "Струнин Виталий Дмитриевич",
+            "Стрюков Владислав Николаевич",
+            "Титов Павел Сергеевич",
+            "Туров Дамир Алексеевич",
+            "Усачёва Елизавета Юрьевна",
+            "Устинов Илья Александрович",
+            "Фридрих Александр Сергеевич",
+            "Чупеев Андрей Дмитриевич",
+            "Швецов Никита Александрович",
+            "Шеремет Арсений Андреевич",
+            "Шихова Анна Михайловна",
+            "Шуруев Андрей Вячеславович"
+        ]
 
-    def predict_detect_model(self, image):
+    def __predict_detect_model(self, image):
         # получаем ширину и высоту картинки
         h, w, _ = image.shape
 
@@ -45,14 +101,14 @@ class DetectSignatureModel:
             result_array.append((x_min, y_min, x_max, y_max))
         return result_array, class_names
 
-    def crop_and_save_image(self, image, clean_output_dir=False):
+    def __crop_and_save_image(self, image, clean_output_dir=False):
         output_dir = 'cropped_images'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         if clean_output_dir:
             delete_files_in_folder(output_dir)
 
-        results_predicted, class_names = self.predict_detect_model(image)
+        results_predicted, class_names = self.__predict_detect_model(image)
 
         for class_index, (x_min, y_min, x_max, y_max) in enumerate(results_predicted):
             cropped_img = image[y_min:y_max, x_min:x_max]  # Вырезаем область из изображения
@@ -64,14 +120,14 @@ class DetectSignatureModel:
 
             print(f"Saved cropped image {output_path}")
 
-    def create_dataset(self, image, clean_output_dir=False):
+    def get_result_predict(self, image, clean_output_dir=False):
         output_dir = 'dataset'
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         if clean_output_dir:
             delete_files_in_folder(output_dir)
 
-        results_predicted, class_names = self.predict_detect_model(image)
+        results_predicted, class_names = self.__predict_detect_model(image)
         unique_class_names = np.unique(class_names)
         data_in_row = []
         index_in_stack = set()
@@ -94,13 +150,90 @@ class DetectSignatureModel:
                     data_in_row[row][class_names[class_index_2]].append((x_min_2, y_min_2, x_max_2, y_max_2))
                     index_in_stack.add(class_index_2)
 
-        self.__visualise_result_predicted(image, data_in_row)
-        return
+        # self.__visualise_all_result_predicted(image, data_in_row)
+        # self.__visualise_result_predicted(image, data_in_row)
+        print(f"Найдено {len(data_in_row)} сигнатур")
+        return data_in_row
 
-    def __visualise_result_predicted(self, image, data):
+    def create_dataset_with_signature(self, image_dir="data 2", base_dir="create_dataset_with_signature"):
+        delete_files_in_folder(base_dir)
+        # Создаем базовую директорию, если она не существует
+        os.makedirs(base_dir, exist_ok=True)
+
+        # Проходим по всем изображениям в папке
+        for filename in os.listdir(image_dir):
+            if filename.endswith(".jpg") or filename.endswith(".jpeg") or filename.endswith(".png"):
+                print(f"Обрабатываю изображение {filename}\n")
+                image_path = os.path.join(image_dir, filename)
+                image = cv2.imread(image_path)
+
+                # Проверяем, удалось ли загрузить изображение
+                if image is not None:
+                    result_predict = self.get_result_predict(image)
+                    self.__create_dataset_with_signature(image, data=result_predict, base_dir=base_dir)
+                else:
+                    print(f"Не удалось загрузить изображение: {image_path}")
+
+    def __create_dataset_with_signature(self, image, data, base_dir="create_dataset_with_signature"):
+        for idx, item in enumerate(data):
+            if len(item[PredictClass.FullName.value]) > 0:
+                (x_min, y_min, x_max, y_max) = item[PredictClass.FullName.value][0]
+                cropped_img_full_name = image[y_min:y_max, x_min:x_max]  # Вырезаем область из изображения
+
+                # Распознаем текст на вырезанном изображении
+                text = pytesseract.image_to_string(cropped_img_full_name, lang='rus').strip()
+
+                # Находим наиболее похожее имя из списка
+                closest_match = get_close_matches(text, self.full_name_all_people, n=1, cutoff=0.6)
+                if closest_match:
+                    closest_name = closest_match[0]
+                else:
+                    closest_name = "Не удалось распознать"
+
+                print(f"Распознанное имя: {text}, Найденное соответствие: {closest_name}")
+
+                # Создаем папку для данного человека
+                person_dir = os.path.join(base_dir, closest_name)
+                os.makedirs(person_dir, exist_ok=True)
+
+                # Определяем максимальный текущий индекс в папке
+                existing_files = os.listdir(person_dir)
+                indices = [int(f.split()[1].split('.')[0]) for f in existing_files if f.startswith('Signature ')]
+                next_index = max(indices, default=0) + 1
+
+                # Сохранение изображения подписи
+                (x_min, y_min, x_max, y_max) = item[PredictClass.Signature.value][0]
+                cropped_img_signature = image[y_min:y_max, x_min:x_max]  # Вырезаем область из изображения
+                save_path = os.path.join(person_dir, f"Signature {next_index}.jpg")
+                cv2.imwrite(save_path, cropped_img_signature)
+                print(f"Изображение сохранено по пути: {save_path}\n\n\n")
+            else:
+                print("ФИО не найдено")
+
+    # region Visualise
+    def __visualise_all_result_predicted(self, image, data):
         # Копия изображения для визуализации
         image_copy = image.copy()
 
+        # Генерируем уникальные цвета для каждого элемента в data
+        colors = self.__generate_colors(len(data))
+
+        for idx, item in enumerate(data):
+            color = colors[idx]
+
+            for key in item:
+                for (x_min, y_min, x_max, y_max) in item[key]:
+                    # Рисуем прямоугольник на изображении
+                    cv2.rectangle(image_copy, (x_min, y_min), (x_max, y_max), color, 2)
+                    # Добавляем текст метки
+                    cv2.putText(image_copy, key, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+        # Показываем изображение
+        cv2.imshow('Result', image_copy)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def __visualise_result_predicted(self, image, data):
         # Генерируем уникальные цвета для каждого элемента в data
         colors = self.__generate_colors(len(data))
 
@@ -128,3 +261,4 @@ class DetectSignatureModel:
             color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
             colors.append(color)
         return colors
+    # endregion

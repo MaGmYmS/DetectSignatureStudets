@@ -9,9 +9,10 @@ def main():
     # model.train_my_model(number_epoch=100)
 
     detect_model = DetectSignatureModel(number_train=29)
-    image_path = r"self development images\Test1.jpg"
-    image = cv2.imread(image_path)
-    detect_model.create_dataset(image)
+    detect_model.create_dataset_with_signature()
+    # image_path = r"data 2\Test1_iteration_1.jpg"
+    # image = cv2.imread(image_path)
+    # detect_model.get_result_predict(image)
 
 
 if __name__ == "__main__":

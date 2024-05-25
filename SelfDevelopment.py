@@ -11,7 +11,7 @@ def delete_files_in_folder(folder_path):
     :return:
     """
 
-    # Создание папки для сохранения кадров, если она не существуе   т
+    # Создание папки для сохранения кадров, если она не существует
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
