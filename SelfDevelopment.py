@@ -22,6 +22,7 @@ def delete_files_in_folder(folder_path):
                 os.unlink(file_path)
             except Exception as e:
                 print(f"Error deleting file: {file_path} -- {e}")
+    print(f"Удалил все файлы в директории {folder_path}")
 
 
 def auto_annotate_dataset(img_list, model, directory, train_images_path):
