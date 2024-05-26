@@ -107,11 +107,12 @@ class CreateCustomYOLOv8Model:
         self._update_data_train_yaml(data_yaml_path)
 
     @staticmethod
-    def _update_work_directory_in_data_yaml(data_yaml_path=r'C:\Users\user\AppData\Roaming\Ultralytics\settings.yaml'):
+    def __update_work_directory_in_data_yaml(path_data_yaml_settings=r'C:\Users\user\AppData\Roaming\Ultralytics'
+                                                                     r'\settings.yaml', path_data_yaml_dataset=None):
         """
         Меняем рабочую директорию в YAML файле для обучения.
-        :param data_yaml_path: Путь к файлу данных YAML.
-        :type data_yaml_path: str
+        :param path_data_yaml_settings: Путь к файлу данных YAML.
+        :type path_data_yaml_settings: str
         :return: Нет возвращаемого значения.
         """
 
@@ -120,22 +121,26 @@ class CreateCustomYOLOv8Model:
         print("Current Directory:", current_directory)
 
         # Формируем путь к директории datasets
-        directory_path = os.path.join(current_directory, "yolov5", "datasets")
+        if path_data_yaml_dataset is None:
+            directory_path = os.path.join(current_directory, "yolov5", "datasets")
+        else:
+            directory_path = os.path.join(current_directory, path_data_yaml_dataset)
 
         # Открываем и читаем YAML файл
-        with open(data_yaml_path, 'r', encoding='utf-8') as file:
+        with open(path_data_yaml_settings, 'r', encoding='utf-8') as file:
             data = yaml.safe_load(file)
 
         # Обновляем значение datasets_dir
         data['datasets_dir'] = directory_path
 
         # Сохраняем изменения в YAML файл
-        with open(data_yaml_path, 'w', encoding='utf-8') as file:
+        with open(path_data_yaml_settings, 'w', encoding='utf-8') as file:
             yaml.safe_dump(data, file, allow_unicode=True)
 
     # endregion
 
-    def train_my_model(self, model_size="n", number_epoch=50, image_size=640):
+    def train_my_model(self, model_size="n", number_epoch=50, image_size=640, path_to_data=None,
+                       path_data_yaml_dataset=None):
         """
         Обучает модель YOLOv8 на предоставленных данных.
 
@@ -144,9 +149,10 @@ class CreateCustomYOLOv8Model:
 
         :return: Нет возвращаемого значения.
         """
-        self._update_work_directory_in_data_yaml()
+        self.__update_work_directory_in_data_yaml(path_data_yaml_dataset=path_data_yaml_dataset)
 
         name_model = f"yolov8{model_size}.pt"
         train_model = YOLO(name_model)
-        train_model.train(data=f"{self.dataset_name}-{self.dataset_version}/data.yaml",
-                          epochs=number_epoch, imgsz=image_size)
+        if path_to_data is None:
+            path_to_data = f"{self.dataset_name}-{self.dataset_version}/data.yaml"
+        train_model.train(data=path_to_data, epochs=number_epoch, imgsz=image_size)

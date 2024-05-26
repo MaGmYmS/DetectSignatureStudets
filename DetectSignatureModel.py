@@ -6,6 +6,7 @@ from difflib import get_close_matches
 import pytesseract
 import cv2
 import numpy as np
+import yaml
 from keras.src.legacy.preprocessing.image import ImageDataGenerator
 from keras.src.utils import load_img, img_to_array
 from matplotlib import pyplot as plt
@@ -408,9 +409,9 @@ class DetectSignatureModel:
 
     def augment_images_with_ImageDataGenerator(self, num_augmentations=1000,
                                                source_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                 r"студентов Data\Data\create_dataset_with_signature",
+                                                          r"студентов Data\Data\create_dataset_with_signature",
                                                augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                 r"студентов Data\Data\create_dataset_with_signature_augmented"):
+                                                             r"студентов Data\Data\create_dataset_with_signature_augmented"):
         delete_files_in_folder(augmented_dir)
         # Настройка генератора изображений
         datagen = ImageDataGenerator(
@@ -445,8 +446,9 @@ class DetectSignatureModel:
         print("Аугментация завершена.")
         self.count_files_in_folders()
 
-    def resize_images_in_folder(self, input_folder, output_folder=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                 r"студентов Data\Data\resized_images", target_width=1920,
+    def resize_images_in_folder(self, input_folder,
+                                output_folder=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
+                                              r"студентов Data\Data\resized_images", target_width=1920,
                                 target_height=1080):
         """
         Изменяет размер всех изображений в папке до указанных ширины и высоты и сохраняет их в другую папку.
@@ -487,8 +489,9 @@ class DetectSignatureModel:
                 except Exception as e:
                     print(f"Не удалось обработать файл {input_path}: {e}")
 
-    def count_files_in_folders(self, augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                 r"студентов Data\Data\create_dataset_with_signature_augmented"):
+    def count_files_in_folders(self,
+                               augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
+                                             r"студентов Data\Data\create_dataset_with_signature_augmented"):
         for person in self.full_name_all_people_ru:
             person_dir = os.path.join(augmented_dir, person)
             if os.path.exists(person_dir) and os.path.isdir(person_dir):
@@ -499,19 +502,20 @@ class DetectSignatureModel:
                 print(f"Папка '{person}' не существует в директории {augmented_dir}.")
         print("\n\n")
 
-    def copy_images_to_new_folder(self, number_images, source_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                 r"студентов Data\Data\create_dataset_with_signature_augmented",
+    def copy_images_to_new_folder(self, number_images,
+                                  source_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
+                                             r"студентов Data\Data\create_dataset_with_signature_augmented",
                                   final_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                 r"студентов Data\Data\final_dataset_with_signature_augmented"):
+                                            r"студентов Data\Data\final_dataset_with_signature_augmented"):
         os.makedirs(final_dir, exist_ok=True)
         delete_files_in_folder(final_dir)
-
+        count_person = len(self.full_name_all_people_ru)
         for i, person in enumerate(self.full_name_all_people_ru):
             person_source_dir = os.path.join(source_dir, person)
             person_final_dir = os.path.join(final_dir, self.full_name_all_people_en[i])
-            os.makedirs(person_final_dir, exist_ok=True)
 
             if os.path.exists(person_source_dir) and os.path.isdir(person_source_dir):
+                os.makedirs(person_final_dir, exist_ok=True)
                 all_files = [name for name in os.listdir(person_source_dir) if
                              os.path.isfile(os.path.join(person_source_dir, name))]
                 num_files = len(all_files)
@@ -525,10 +529,68 @@ class DetectSignatureModel:
                         destination_file = os.path.join(person_final_dir, file)
                         shutil.copy2(source_file, destination_file)
 
-                    print(f"Скопировано {len(selected_files)} файлов для {person}.")
+                    print(f"({i}/{count_person}) Скопировано {len(selected_files)} файлов для {person}.")
                 else:
-                    print(f"Нет файлов для копирования в папке {person}.")
+                    print(f"({i}/{count_person}) Нет файлов для копирования в папке {person}.")
             else:
-                print(f"Папка '{person}' не существует в директории {source_dir}.")
+                print(f"({i}/{count_person}) Папка '{person}' не существует в директории {source_dir}.")
         print("\n\n")
+
+    @staticmethod
+    def __create_yaml_file(yaml_path, class_names, train_dir="../train/images", val_dir="../valid/images",
+                           test_dir="../test/images"):
+        data = {
+            'train': train_dir,
+            'val': val_dir,
+            'test': test_dir,
+            'names': class_names
+        }
+
+        with open(yaml_path, 'w') as yaml_file:
+            yaml.dump(data, yaml_file, default_flow_style=False)
+
+        print(f"YAML файл сохранен по пути: {yaml_path}")
+
+    def split_dataset(self, source_dir, dest_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
+        assert train_ratio + val_ratio + test_ratio == 1, "Соотношения должны суммироваться до 1"
+        delete_files_in_folder(dest_dir)
+        if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir)
+
+        train_dir = os.path.join(dest_dir, 'train')
+        val_dir = os.path.join(dest_dir, 'val')
+        test_dir = os.path.join(dest_dir, 'test')
+        yaml_path = os.path.join(dest_dir, 'data.yaml')
+
+        os.makedirs(train_dir, exist_ok=True)
+        os.makedirs(val_dir, exist_ok=True)
+        os.makedirs(test_dir, exist_ok=True)
+
+        class_names = []
+        for class_name in tqdm(os.listdir(source_dir)):
+            class_names.append(class_name)
+            class_dir = os.path.join(source_dir, class_name)
+
+            if os.path.isdir(class_dir):
+                images = os.listdir(class_dir)
+                random.shuffle(images)
+
+                train_split = int(train_ratio * len(images))
+                val_split = int(val_ratio * len(images))
+
+                train_images = images[:train_split]
+                val_images = images[train_split:train_split + val_split]
+                test_images = images[train_split + val_split:]
+
+                for image_set, subset_dir in zip([train_images, val_images, test_images],
+                                                 [train_dir, val_dir, test_dir]):
+                    subset_class_dir = os.path.join(subset_dir, class_name)
+                    os.makedirs(subset_class_dir, exist_ok=True)
+
+                    for image in image_set:
+                        src_image_path = os.path.join(class_dir, image)
+                        dest_image_path = os.path.join(subset_class_dir, image)
+                        shutil.copy2(src_image_path, dest_image_path)
+        self.__create_yaml_file(yaml_path, class_names=class_names)
+        print("Разделение данных завершено. Датасет успешно создан")
     # endregion

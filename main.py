@@ -4,10 +4,13 @@ from DetectSignatureModel import DetectSignatureModel
 
 
 def main():
-    # model = CreateCustomYOLOv8Model(dataset_version=3)
+    model = CreateCustomYOLOv8Model(dataset_version=3)
     # model.download_dataset()
     # model.train_my_model(model_size="s", number_epoch=50, image_size=1280)
-    # model.train_my_model(model_size="s", number_epoch=100, image_size=64)
+    # path_data_yaml_dataset = r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов\Data"
+    data_to_yaml = (r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов\Data"
+                    r"\final_final_dataset_with_signature_augmented\data.yaml")
+    model.train_my_model(model_size="n", number_epoch=100, image_size=64, path_to_data=data_to_yaml)
 
     detect_model = DetectSignatureModel(number_train=33)
     # input_folder = r"Data\data_2"
@@ -20,7 +23,12 @@ def main():
     # detect_model.get_result_predict(image, visualise=True)
 
     # detect_model.create_augmentation_folder(angle_value=10, shift_value=10, resize_value=64)
-    detect_model.copy_images_to_new_folder(10000)
+    # detect_model.copy_images_to_new_folder(10)
+    # source_dir = (r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов Data\Data"
+    #               r"\final_dataset_with_signature_augmented")
+    # dest_dir = (r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов\Data"
+    #             r"\final_final_dataset_with_signature_augmented")
+    # detect_model.split_dataset(source_dir, dest_dir)
 
 
 if __name__ == "__main__":
