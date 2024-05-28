@@ -1,14 +1,10 @@
 import enum
 import os
 import random
-import shutil
 from difflib import get_close_matches
 import pytesseract
 import cv2
 import numpy as np
-import yaml
-from keras.src.legacy.preprocessing.image import ImageDataGenerator
-from keras.src.utils import load_img, img_to_array
 from matplotlib import pyplot as plt
 
 from tqdm import tqdm
@@ -165,15 +161,15 @@ class DetectSignatureModel:
     def get_result_predict(self, image, visualise=False):
         results_predicted, class_names = self.__predict_detect_model(image)
         unique_class_names = np.unique(class_names)
-        data_in_row = []
+        data_name_signature = []
         index_in_stack = set()
         row = -1
         for class_index_1, (x_min_1, y_min_1, x_max_1, y_max_1) in enumerate(results_predicted):
             # Нашли роспись, значит где-то рядом есть имя.
             if class_index_1 not in index_in_stack and class_names[class_index_1] == PredictClass.Signature.value:
                 row += 1
-                data_in_row.append({unique_class_names[0]: [], unique_class_names[1]: []})
-                data_in_row[row][class_names[class_index_1]].append((x_min_1, y_min_1, x_max_1, y_max_1))
+                data_name_signature.append({unique_class_names[0]: [], unique_class_names[1]: []})
+                data_name_signature[row][class_names[class_index_1]].append((x_min_1, y_min_1, x_max_1, y_max_1))
                 index_in_stack.add(class_index_1)
             else:
                 continue
@@ -183,14 +179,14 @@ class DetectSignatureModel:
                         and class_index_2 not in index_in_stack  # Не просмотрена
                         and abs(x_max_2 - x_min_1) < 250  # Находятся близко друг к другу
                         and class_names[class_index_2] == PredictClass.FullName.value):  # Это имя
-                    data_in_row[row][class_names[class_index_2]].append((x_min_2, y_min_2, x_max_2, y_max_2))
+                    data_name_signature[row][class_names[class_index_2]].append((x_min_2, y_min_2, x_max_2, y_max_2))
                     index_in_stack.add(class_index_2)
 
         if visualise:
-            self.__visualise_all_result_predicted(image, data_in_row)
+            self.__visualise_all_result_predicted(image, data_name_signature)
         # self.__visualise_result_predicted(image, data_in_row)
-        print(f"Найдено {len(data_in_row)} сигнатур")
-        return data_in_row
+        print(f"Найдено {len(data_name_signature)} сигнатур")
+        return data_name_signature
 
     def create_dataset_with_signature(self, image_dir=r"Data\data_2", base_dir=r"Data\create_dataset_with_signature",
                                       visualise=False):
@@ -311,270 +307,4 @@ class DetectSignatureModel:
 
     # endregion
 
-    # region Augmentation
 
-    @staticmethod
-    def __resize_image(image, target_width, target_height):
-        """
-        Изменяет размер изображения до указанных ширины и высоты.
-
-        :param image: исходное изображение (numpy массив)
-        :param target_width: целевая ширина
-        :param target_height: целевая высота
-        :return: изображение с измененным размером
-        """
-        return cv2.resize(image, (target_width, target_height), interpolation=cv2.INTER_AREA)
-
-    @staticmethod
-    def __rotate_image(image, angle):
-        # Функция для поворота изображения
-        h, w = image.shape[:2]
-        # Создаем пустое белое поле размером 2h и 2w
-        bg = np.ones((2 * h, 2 * w, 3), dtype=np.uint8) * 255
-        # Помещаем исходное изображение в центр
-        bg[h // 2:h // 2 + h, w // 2:w // 2 + w] = image
-        center = (w, h)
-        matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-        # Применяем поворот
-        rotated = cv2.warpAffine(bg, matrix, (2 * w, 2 * h))
-        # Обрезаем до размера h и w
-        rotated_cropped = rotated[h // 2:h // 2 + h, w // 2:w // 2 + w]
-        return rotated_cropped
-
-    @staticmethod
-    def __shift_image(image, shift):
-        # Функция для сдвига изображения
-        h, w = image.shape[:2]
-        matrix = np.float32([[1, 0, shift[0]], [0, 1, shift[1]]])
-
-        # Создаем белое поле
-        white_background = np.full((h, w, 3), 255, dtype=np.uint8)
-
-        # Сдвигаем изображение
-        shifted = cv2.warpAffine(image, matrix, (w, h))
-
-        # Найти границы изображения
-        _, binary = cv2.threshold(cv2.cvtColor(shifted, cv2.COLOR_BGR2GRAY), 1, 255, cv2.THRESH_BINARY)
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            x, y, w, h = cv2.boundingRect(contours[0])
-            shifted_cropped = shifted[y:y + h, x:x + w]
-            white_background[y:y + h, x:x + w] = shifted_cropped
-
-        return white_background
-
-    def create_augmentation_folder(self, angle_value=10, shift_value=10, resize_value=64,
-                                   source_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                              r"студентов Data\Data\create_dataset_with_signature",
-                                   augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                 r"студентов Data\Data\create_dataset_with_signature_augmented"):
-        delete_files_in_folder(augmented_dir)
-        # Аугментации
-        angles = range(-angle_value, angle_value, 1)
-        shifts = [(shift_x, shift_y) for shift_x in range(-shift_value, shift_value + 1, 2) for
-                  shift_y in range(-shift_value, shift_value + 1, 2)]
-        # Создаем дерево каталогов и выполняем аугментации
-        for person in tqdm(self.full_name_all_people_ru):
-            person_source_dir = os.path.join(source_dir, person)
-            person_augmented_dir = os.path.join(augmented_dir, person)
-            # Проверяем, существует ли папка для этого человека
-            if not os.path.exists(person_source_dir):
-                # print(f"Папка для {person} не существует в директории {source_dir}. Пропускаем.")
-                continue
-            os.makedirs(person_augmented_dir, exist_ok=True)
-
-            for filename in os.listdir(person_source_dir):
-                if filename.endswith(".jpg") or filename.endswith(".png"):
-
-                    image_path = os.path.join(person_source_dir, filename)
-                    image = cv2.imread(image_path)
-                    if image is not None:
-
-                        # Аугментации: повороты и сдвиги
-                        for angle in angles:
-                            rotated_image = self.__rotate_image(image, angle)
-                            for shift in shifts:
-                                rotated_image_copy = rotated_image.copy()
-                                rotated_shifted_image = self.__shift_image(rotated_image_copy, shift)
-                                resize_rotated_shifted_image = self.__resize_image(rotated_shifted_image,
-                                                                                   target_width=resize_value,
-                                                                                   target_height=resize_value)
-                                shift_label = f"{shift[0]}_{shift[1]}"
-                                new_filename = f"{os.path.splitext(filename)[0]}_rot{angle}__shift{shift_label}.jpg"
-                                cv2.imwrite(os.path.join(person_augmented_dir, new_filename),
-                                            resize_rotated_shifted_image)
-
-        print("Аугментация завершена.")
-        self.count_files_in_folders()
-
-    def augment_images_with_ImageDataGenerator(self, num_augmentations=1000,
-                                               source_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                          r"студентов Data\Data\create_dataset_with_signature",
-                                               augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                                             r"студентов Data\Data\create_dataset_with_signature_augmented"):
-        delete_files_in_folder(augmented_dir)
-        # Настройка генератора изображений
-        datagen = ImageDataGenerator(
-            rotation_range=15,
-            width_shift_range=0.1,
-            height_shift_range=0.1
-        )
-        for person in tqdm(self.full_name_all_people_ru):
-            person_source_dir = os.path.join(source_dir, person)
-            person_augmented_dir = os.path.join(augmented_dir, person)
-
-            # Проверяем, существует ли папка для этого человека
-            if not os.path.exists(person_source_dir):
-                # print(f"Папка для {person} не существует в директории {source_dir}. Пропускаем.")
-                continue
-
-            os.makedirs(person_augmented_dir, exist_ok=True)
-
-            for filename in os.listdir(person_source_dir):
-                if filename.endswith(".jpg") or filename.endswith(".png"):
-                    image_path = os.path.join(person_source_dir, filename)
-                    image = load_img(image_path)
-                    x = img_to_array(image)
-                    x = x.reshape((1,) + x.shape)
-
-                    i = 0
-                    for batch in datagen.flow(x, batch_size=1, save_to_dir=person_augmented_dir, save_prefix='aug',
-                                              save_format='jpg'):
-                        i += 1
-                        if i >= num_augmentations:
-                            break
-        print("Аугментация завершена.")
-        self.count_files_in_folders()
-
-    def resize_images_in_folder(self, input_folder,
-                                output_folder=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                              r"студентов Data\Data\resized_images", target_width=1920,
-                                target_height=1080):
-        """
-        Изменяет размер всех изображений в папке до указанных ширины и высоты и сохраняет их в другую папку.
-
-        :param input_folder: путь к папке с исходными изображениями
-        :param output_folder: путь к папке для сохранения измененных изображений
-        :param target_width: целевая ширина (по умолчанию 1920)
-        :param target_height: целевая высота (по умолчанию 1080)
-        """
-        # Создаем выходную папку, если она не существует
-        os.makedirs(output_folder, exist_ok=True)
-        delete_files_in_folder(output_folder)
-
-        # Проходим по всем файлам в входной папке
-        for filename in os.listdir(input_folder):
-            # Полный путь к файлу
-            input_path = os.path.join(input_folder, filename)
-
-            # Проверяем, является ли файл изображением
-            if filename.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp')):
-                try:
-                    # Считываем изображение с помощью OpenCV
-                    image = cv2.imread(input_path)
-
-                    # Проверяем, удалось ли загрузить изображение
-                    if image is not None:
-                        # Изменяем размер изображения
-                        resized_image = self.__resize_image(image, target_width, target_height)
-
-                        # Полный путь к выходному файлу
-                        output_path = os.path.join(output_folder, filename)
-
-                        # Сохраняем измененное изображение
-                        cv2.imwrite(output_path, resized_image)
-                        print(f"Изображение сохранено по пути: {output_path}")
-                    else:
-                        print(f"Не удалось загрузить изображение: {input_path}")
-                except Exception as e:
-                    print(f"Не удалось обработать файл {input_path}: {e}")
-
-    def count_files_in_folders(self,
-                               augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                             r"студентов Data\Data\create_dataset_with_signature_augmented"):
-        for person in self.full_name_all_people_ru:
-            person_dir = os.path.join(augmented_dir, person)
-            if os.path.exists(person_dir) and os.path.isdir(person_dir):
-                num_files = len([name for name in os.listdir(person_dir) if
-                                 os.path.isfile(os.path.join(person_dir, name))])
-                print(f"Папка '{person}' содержит {num_files} файлов.")
-            else:
-                print(f"Папка '{person}' не существует в директории {augmented_dir}.")
-        print("\n\n")
-
-    def copy_images_to_new_folder(self, number_images,
-                                  source_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                             r"студентов Data\Data\create_dataset_with_signature_augmented",
-                                  final_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                            r"студентов Data\Data\final_dataset_with_signature_augmented"):
-        os.makedirs(final_dir, exist_ok=True)
-        delete_files_in_folder(final_dir)
-        count_person = len(self.full_name_all_people_ru)
-        for i, person in enumerate(self.full_name_all_people_ru):
-            person_source_dir = os.path.join(source_dir, person)
-            person_final_dir = os.path.join(final_dir, self.full_name_all_people_en[i])
-
-            if os.path.exists(person_source_dir) and os.path.isdir(person_source_dir):
-                os.makedirs(person_final_dir, exist_ok=True)
-                all_files = [name for name in os.listdir(person_source_dir) if
-                             os.path.isfile(os.path.join(person_source_dir, name))]
-                num_files = len(all_files)
-
-                if num_files > 0:
-                    indices = np.linspace(0, num_files - 1, min(number_images, num_files), dtype=int)
-                    selected_files = [all_files[i] for i in indices]
-
-                    for file in selected_files:
-                        source_file = os.path.join(person_source_dir, file)
-                        destination_file = os.path.join(person_final_dir, file)
-                        shutil.copy2(source_file, destination_file)
-
-                    print(f"({i}/{count_person}) Скопировано {len(selected_files)} файлов для {person}.")
-                else:
-                    print(f"({i}/{count_person}) Нет файлов для копирования в папке {person}.")
-            else:
-                print(f"({i}/{count_person}) Папка '{person}' не существует в директории {source_dir}.")
-        print("\n\n")
-
-    @staticmethod
-    def split_dataset(source_dir, dest_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
-        assert train_ratio + val_ratio + test_ratio == 1, "Соотношения должны суммироваться до 1"
-        delete_files_in_folder(dest_dir)
-        if not os.path.exists(dest_dir):
-            os.makedirs(dest_dir)
-
-        train_dir = os.path.join(dest_dir, 'train')
-        val_dir = os.path.join(dest_dir, 'valid')
-        test_dir = os.path.join(dest_dir, 'test')
-
-        os.makedirs(train_dir, exist_ok=True)
-        os.makedirs(val_dir, exist_ok=True)
-        os.makedirs(test_dir, exist_ok=True)
-
-        class_names = []
-        for class_name in tqdm(os.listdir(source_dir)):
-            class_names.append(class_name)
-            class_dir = os.path.join(source_dir, class_name)
-
-            if os.path.isdir(class_dir):
-                images = os.listdir(class_dir)
-                random.shuffle(images)
-
-                train_split = int(train_ratio * len(images))
-                val_split = int(val_ratio * len(images))
-
-                train_images = images[:train_split]
-                val_images = images[train_split:train_split + val_split]
-                test_images = images[train_split + val_split:]
-
-                for image_set, subset_dir in zip([train_images, val_images, test_images],
-                                                 [train_dir, val_dir, test_dir]):
-                    subset_class_dir = os.path.join(subset_dir, class_name)
-                    os.makedirs(subset_class_dir, exist_ok=True)
-
-                    for image in image_set:
-                        src_image_path = os.path.join(class_dir, image)
-                        dest_image_path = os.path.join(subset_class_dir, image)
-                        shutil.copy2(src_image_path, dest_image_path)
-        print("Разделение данных завершено. Датасет успешно создан")
-    # endregion

@@ -55,7 +55,7 @@ class CreateCustomYOLOv8Model:
         return dataset.location
 
     @staticmethod
-    def _delete_exists_folder(folder_path):
+    def __delete_exists_folder(folder_path):
         """
         Удаляет папку, если она существует
 
@@ -77,9 +77,9 @@ class CreateCustomYOLOv8Model:
         """
 
         dataset_path = self.dataset_name + "-" + str(self.dataset_version)
-        self._delete_exists_folder(dataset_path)
+        self.__delete_exists_folder(dataset_path)
         target_folder = os.path.join("yolov5", "datasets", dataset_path)
-        self._delete_exists_folder(target_folder)
+        self.__delete_exists_folder(target_folder)
 
         source_folder = self._download_datasets_from_roboflow()
         data_yaml_path = f"{dataset_path}/data.yaml"
@@ -140,7 +140,7 @@ class CreateCustomYOLOv8Model:
     # endregion
 
     def train_my_model(self, model_size="n", number_epoch=50, image_size=640, path_to_data=None,
-                       path_data_yaml_dataset=None):
+                       path_data_yaml_dataset=None, type_predict=""):
         """
         Обучает модель YOLOv8 на предоставленных данных.
 
@@ -151,7 +151,7 @@ class CreateCustomYOLOv8Model:
         """
         self.__update_work_directory_in_data_yaml(path_data_yaml_dataset=path_data_yaml_dataset)
 
-        name_model = f"yolov8{model_size}-cls.pt"
+        name_model = f"yolov8{model_size}{type_predict}.pt"
         train_model = YOLO(name_model)
         if path_to_data is None:
             path_to_data = f"{self.dataset_name}-{self.dataset_version}/data.yaml"
