@@ -151,8 +151,10 @@ class CreateCustomYOLOv8Model:
         """
         self.__update_work_directory_in_data_yaml(path_data_yaml_dataset=path_data_yaml_dataset)
 
-        name_model = f"yolov8{model_size}.pt"
+        name_model = f"yolov8{model_size}-cls.pt"
         train_model = YOLO(name_model)
         if path_to_data is None:
             path_to_data = f"{self.dataset_name}-{self.dataset_version}/data.yaml"
+        print(f"{self.dataset_name}-{self.dataset_version}/data.yaml")
+        print(path_to_data)
         train_model.train(data=path_to_data, epochs=number_epoch, imgsz=image_size)

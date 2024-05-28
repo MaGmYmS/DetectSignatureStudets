@@ -537,30 +537,15 @@ class DetectSignatureModel:
         print("\n\n")
 
     @staticmethod
-    def __create_yaml_file(yaml_path, class_names, train_dir="../train/images", val_dir="../valid/images",
-                           test_dir="../test/images"):
-        data = {
-            'train': train_dir,
-            'val': val_dir,
-            'test': test_dir,
-            'names': class_names
-        }
-
-        with open(yaml_path, 'w') as yaml_file:
-            yaml.dump(data, yaml_file, default_flow_style=False)
-
-        print(f"YAML файл сохранен по пути: {yaml_path}")
-
-    def split_dataset(self, source_dir, dest_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
+    def split_dataset(source_dir, dest_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
         assert train_ratio + val_ratio + test_ratio == 1, "Соотношения должны суммироваться до 1"
         delete_files_in_folder(dest_dir)
         if not os.path.exists(dest_dir):
             os.makedirs(dest_dir)
 
         train_dir = os.path.join(dest_dir, 'train')
-        val_dir = os.path.join(dest_dir, 'val')
+        val_dir = os.path.join(dest_dir, 'valid')
         test_dir = os.path.join(dest_dir, 'test')
-        yaml_path = os.path.join(dest_dir, 'data.yaml')
 
         os.makedirs(train_dir, exist_ok=True)
         os.makedirs(val_dir, exist_ok=True)
@@ -591,6 +576,5 @@ class DetectSignatureModel:
                         src_image_path = os.path.join(class_dir, image)
                         dest_image_path = os.path.join(subset_class_dir, image)
                         shutil.copy2(src_image_path, dest_image_path)
-        self.__create_yaml_file(yaml_path, class_names=class_names)
         print("Разделение данных завершено. Датасет успешно создан")
     # endregion

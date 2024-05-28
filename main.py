@@ -8,9 +8,9 @@ def main():
     # model.download_dataset()
     # model.train_my_model(model_size="s", number_epoch=50, image_size=1280)
     # path_data_yaml_dataset = r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов\Data"
-    data_to_yaml = (r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов\Data"
-                    r"\final_final_dataset_with_signature_augmented\data.yaml")
-    model.train_my_model(model_size="n", number_epoch=100, image_size=64, path_to_data=data_to_yaml)
+    # data_to_yaml = (r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов\yolov5\datasets"
+    #                 r"\final_final_dataset_with_signature_augmented_10000")
+    # model.train_my_model(model_size="n", number_epoch=1, image_size=64, path_to_data=data_to_yaml)
 
     detect_model = DetectSignatureModel(number_train=33)
     # input_folder = r"Data\data_2"
@@ -25,9 +25,9 @@ def main():
     # detect_model.create_augmentation_folder(angle_value=10, shift_value=10, resize_value=64)
     # detect_model.copy_images_to_new_folder(10)
     # source_dir = (r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов Data\Data"
-    #               r"\final_dataset_with_signature_augmented")
-    # dest_dir = (r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов\Data"
-    #             r"\final_final_dataset_with_signature_augmented")
+    #               r"\final_dataset_with_signature_augmented_10000")
+    # dest_dir = (r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей студентов\yolov5\datasets"
+    #             r"\final_final_dataset_with_signature_augmented_10000")
     # detect_model.split_dataset(source_dir, dest_dir)
 
 
