@@ -37,7 +37,7 @@ def main():
                   r"\Data\data_2\Test1_iteration_1.jpg")
     image = cv2.imread(image_path)
     data = detect_model.get_result_predict(image)
-    classification_signatures = classifier_model.get_result_predict(image, data)
+    classification_signatures = classifier_model.get_result_predict(image, data, visualize=True)
     print(classification_signatures)
 
 

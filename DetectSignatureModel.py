@@ -13,6 +13,15 @@ from ultralytics import YOLO
 from SelfDevelopment import delete_files_in_folder
 
 
+def generate_colors(num_colors):
+    # Генерируем случайные цвета
+    colors = []
+    for _ in range(num_colors):
+        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        colors.append(color)
+    return colors
+
+
 class PredictClass(enum.Enum):
     FullName = "Full-name"
     Signature = "Signature"
@@ -246,12 +255,13 @@ class DetectSignatureModel:
                 print(f"Потеряли ФИО с подписью")
 
     # region Visualise
-    def __visualise_all_result_predicted(self, image, data):
+    @staticmethod
+    def __visualise_all_result_predicted(image, data):
         # Копия изображения для визуализации
         image_copy = image.copy()
 
         # Генерируем уникальные цвета для каждого элемента в data
-        colors = self.__generate_colors(len(data))
+        colors = generate_colors(len(data))
 
         for idx, item in enumerate(data):
             color = colors[idx]
@@ -272,9 +282,10 @@ class DetectSignatureModel:
         plt.axis('off')
         plt.show()
 
-    def __visualise_result_predicted(self, image, data):
+    @staticmethod
+    def __visualise_result_predicted(image, data):
         # Генерируем уникальные цвета для каждого элемента в data
-        colors = self.__generate_colors(len(data))
+        colors = generate_colors(len(data))
 
         for idx, item in enumerate(data):
             color = colors[idx]
@@ -295,16 +306,6 @@ class DetectSignatureModel:
                 plt.imshow(image_copy)
                 plt.axis('off')
                 plt.show()
-
-    @staticmethod
-    def __generate_colors(num_colors):
-        # Генерируем случайные цвета
-        colors = []
-        for _ in range(num_colors):
-            color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-            colors.append(color)
-        return colors
-
     # endregion
 
 
