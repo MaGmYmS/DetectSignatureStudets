@@ -10,7 +10,7 @@ from DetectSignatureModel import generate_colors, PredictClass
 
 
 class ClassifierSignatureModel:
-    def __init__(self, number_train):
+    def __init__(self, number_train=""):
         my_best_model = f"runs/classify/train{number_train}/weights/best.pt"  # Загружаем модель
         model = YOLO(my_best_model)
         self.model = model

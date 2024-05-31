@@ -1,3 +1,4 @@
+import enum
 import os
 import random
 import shutil
@@ -13,8 +14,13 @@ random.seed(42)
 np.random.seed(42)
 
 
+class TypeModel(enum.Enum):
+    Detect = enum.auto()
+    Classification = enum.auto()
+
+
 class CreateCustomYOLOv8Model:
-    def __init__(self, dataset_version):
+    def __init__(self, dataset_version=None):
         self.dataset_version = dataset_version
         self.rf = Roboflow(api_key="AmQ0vHqaiNHr6SeXUAWb")
         self.workspace_name = "detected"
@@ -42,7 +48,7 @@ class CreateCustomYOLOv8Model:
         with open(data_yaml_path, 'w') as file:
             yaml.dump(data, file)
 
-    def _download_datasets_from_roboflow(self):
+    def __download_datasets_from_roboflow(self):
         """
         Загружает датасет с Roboflow
 
@@ -75,13 +81,15 @@ class CreateCustomYOLOv8Model:
 
         :return: Нет возвращаемого значения.
         """
-
+        if self.dataset_version is None:
+            print("При загрузке данных произошла ошибка. Версия датасета не определена")
+            return
         dataset_path = self.dataset_name + "-" + str(self.dataset_version)
         self.__delete_exists_folder(dataset_path)
         target_folder = os.path.join("yolov5", "datasets", dataset_path)
         self.__delete_exists_folder(target_folder)
 
-        source_folder = self._download_datasets_from_roboflow()
+        source_folder = self.__download_datasets_from_roboflow()
         data_yaml_path = f"{dataset_path}/data.yaml"
         self._update_data_train_yaml(data_yaml_path)
 
@@ -103,7 +111,7 @@ class CreateCustomYOLOv8Model:
         except OSError as e:
             print(f'Не удалось удалить папку {dataset_path}: {e}')
 
-        self._download_datasets_from_roboflow()
+        self.__download_datasets_from_roboflow()
         self._update_data_train_yaml(data_yaml_path)
 
     @staticmethod
@@ -140,7 +148,7 @@ class CreateCustomYOLOv8Model:
     # endregion
 
     def train_my_model(self, model_size="n", number_epoch=50, image_size=640, path_to_data=None,
-                       path_data_yaml_dataset=None, type_predict=""):
+                       path_data_yaml_dataset=None, type_model=TypeModel.Detect):
         """
         Обучает модель YOLOv8 на предоставленных данных.
 
@@ -151,10 +159,20 @@ class CreateCustomYOLOv8Model:
         """
         self.__update_work_directory_in_data_yaml(path_data_yaml_dataset=path_data_yaml_dataset)
 
-        name_model = f"yolov8{model_size}{type_predict}.pt"
+        if type_model == TypeModel.Detect:
+            name_model = f"yolov8{model_size}.pt"
+        elif type_model == TypeModel.Classification:
+            name_model = f"yolov8{model_size}-cls.pt"
+        else:
+            name_model = "yolov8n.pt"
+
         train_model = YOLO(name_model)
         if path_to_data is None:
-            path_to_data = f"{self.dataset_name}-{self.dataset_version}/data.yaml"
+            if self.dataset_version is not None:
+                path_to_data = f"{self.dataset_name}-{self.dataset_version}/data.yaml"
+            else:
+                print("Обучение прервано, произошла ошибка. Версия датасета не определена")
+                return
         print(f"{self.dataset_name}-{self.dataset_version}/data.yaml")
         print(path_to_data)
         train_model.train(data=path_to_data, epochs=number_epoch, imgsz=image_size)

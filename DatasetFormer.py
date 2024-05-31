@@ -1,18 +1,22 @@
 import random
 import os
 import shutil
+from difflib import get_close_matches
 
 import cv2
 import numpy as np
 from keras.src.legacy.preprocessing.image import ImageDataGenerator
 from keras.src.utils import load_img, img_to_array
+from pytesseract import pytesseract
 from tqdm import tqdm
 
+from DetectSignatureModel import PredictClass
 from SelfDevelopment import delete_files_in_folder
 
 
 class DatasetFormer:
-    def __init__(self):
+    def __init__(self, detect_model=None):
+        self.detect_model = detect_model
         self.full_name_all_people_ru = [
             "Абдиреуков Самат Талгатулы",
             "Абушев Хасан Ибрагимович",
@@ -124,6 +128,67 @@ class DatasetFormer:
         ]
 
         # region Augmentation
+
+    def create_dataset_with_signature(self, image_dir=r"Data\data_2", base_dir=r"Data\create_dataset_with_signature",
+                                      visualise=False):
+        delete_files_in_folder(base_dir)
+        # Создаем базовую директорию, если она не существует
+        os.makedirs(base_dir, exist_ok=True)
+
+        # Проходим по всем изображениям в папке
+        for filename in os.listdir(image_dir):
+            if filename.endswith(".jpg") or filename.endswith(".jpeg") or filename.endswith(".png"):
+                print(f"\n\nОбрабатываю изображение {filename}")
+                image_path = os.path.join(image_dir, filename)
+                image = cv2.imread(image_path)
+                # Проверяем, удалось ли загрузить изображение
+                if image is not None:
+                    if self.detect_model is not None:
+                        result_predict = self.detect_model.get_result_predict(image, visualise=visualise)
+                        self.__create_dataset_with_signature(image, data=result_predict, base_dir=base_dir)
+                    else:
+                        print("Модель не была загружена")
+                        return
+                else:
+                    print(f"Не удалось загрузить изображение: {image_path}")
+
+    def __create_dataset_with_signature(self, image, data, base_dir="create_dataset_with_signature"):
+        for idx, item in enumerate(data):
+            if len(item[PredictClass.FullName.value]) > 0:
+                (x_min, y_min, x_max, y_max) = item[PredictClass.FullName.value][0]
+                cropped_img_full_name = image[y_min:y_max, x_min:x_max]  # Вырезаем область из изображения
+
+                # Распознаем текст на вырезанном изображении
+                text = pytesseract.image_to_string(cropped_img_full_name, lang='rus').strip()
+
+                # Находим наиболее похожее имя из списка
+                closest_match = get_close_matches(text, self.full_name_all_people_ru, n=1, cutoff=0.6)
+                if closest_match:
+                    closest_name = closest_match[0]
+                else:
+                    print(f"ФИО \"{text}\" не найдено в списке")
+                    closest_name = "Не удалось распознать"
+
+                # print(f"Распознанное имя: {text}, Найденное соответствие: {closest_name}")
+
+                # Создаем папку для данного человека
+                person_dir = os.path.join(base_dir, closest_name)
+                os.makedirs(person_dir, exist_ok=True)
+
+                # Определяем максимальный текущий индекс в папке
+                existing_files = os.listdir(person_dir)
+                indices = [int(f.split()[1].split('.')[0]) for f in existing_files if f.startswith('Signature ')]
+                next_index = max(indices, default=0) + 1
+
+                # Сохранение изображения подписи
+                (x_min, y_min, x_max, y_max) = item[PredictClass.Signature.value][0]
+                cropped_img_signature = image[y_min:y_max, x_min:x_max]  # Вырезаем область из изображения
+                cropped_img_gray_signature = cv2.cvtColor(cropped_img_signature, cv2.COLOR_BGR2GRAY)
+                save_path = os.path.join(person_dir, f"Signature {next_index}.jpg")
+                cv2.imwrite(save_path, cropped_img_gray_signature)
+                # print(f"Изображение сохранено по пути: {save_path}\n\n\n")
+            else:
+                print(f"Потеряли ФИО с подписью")
 
     @staticmethod
     def __resize_image(image, target_width, target_height):
@@ -393,4 +458,4 @@ class DatasetFormer:
                         dest_image_path = os.path.join(subset_class_dir, image)
                         shutil.copy2(src_image_path, dest_image_path)
         print("Разделение данных завершено. Датасет успешно создан")
-    # endregion
+
