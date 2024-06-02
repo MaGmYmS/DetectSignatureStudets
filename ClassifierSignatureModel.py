@@ -5,8 +5,9 @@ import cv2
 from matplotlib import pyplot as plt
 from pytesseract import pytesseract
 
+from DatasetFormer import DatasetFormer
 from ultralytics import YOLO
-from DetectSignatureModel import PredictClass
+from misc import PredictClass
 
 
 class ClassifierSignatureModel:
@@ -135,6 +136,7 @@ class ClassifierSignatureModel:
         return results[0].names[class_id], confidence
 
     def get_result_predict(self, image, data, visualize=False):
+        image = DatasetFormer.resize_image(image)
         results_predict_classifier = []
         for idx, item in enumerate(data):
             for (x_min, y_min, x_max, y_max) in item[PredictClass.Signature.value]:

@@ -1,9 +1,10 @@
 from CreateDetectedSignatureModelTrain import CreateCustomYOLOv8Model, TypeModel
 
 
-def train_model_detect_signature_and_full_name():
+def train_model_detect_signature_and_full_name(download_dataset=False):
     model = CreateCustomYOLOv8Model(dataset_version=3)
-    model.download_dataset()
+    if download_dataset:
+        model.download_dataset()
     model.train_my_model(model_size="s", number_epoch=50, image_size=1280, type_model=TypeModel.Detect)
 
 

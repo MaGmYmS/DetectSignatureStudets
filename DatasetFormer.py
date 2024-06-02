@@ -10,7 +10,7 @@ from keras.src.utils import load_img, img_to_array
 from pytesseract import pytesseract
 from tqdm import tqdm
 
-from DetectSignatureModel import PredictClass
+from misc import PredictClass
 from SelfDevelopment import delete_files_in_folder
 
 
@@ -191,7 +191,7 @@ class DatasetFormer:
                 print(f"Потеряли ФИО с подписью")
 
     @staticmethod
-    def __resize_image(image, target_width, target_height):
+    def resize_image(image, target_width=1920, target_height=1080):
         """
         Изменяет размер изображения до указанных ширины и высоты.
 
@@ -273,9 +273,9 @@ class DatasetFormer:
                             for shift in shifts:
                                 rotated_image_copy = rotated_image.copy()
                                 rotated_shifted_image = self.__shift_image(rotated_image_copy, shift)
-                                resize_rotated_shifted_image = self.__resize_image(rotated_shifted_image,
-                                                                                   target_width=resize_value,
-                                                                                   target_height=resize_value)
+                                resize_rotated_shifted_image = self.resize_image(rotated_shifted_image,
+                                                                                 target_width=resize_value,
+                                                                                 target_height=resize_value)
                                 shift_label = f"{shift[0]}_{shift[1]}"
                                 new_filename = f"{os.path.splitext(filename)[0]}_rot{angle}__shift{shift_label}.jpg"
                                 cv2.imwrite(os.path.join(person_augmented_dir, new_filename),
@@ -355,7 +355,7 @@ class DatasetFormer:
                     # Проверяем, удалось ли загрузить изображение
                     if image is not None:
                         # Изменяем размер изображения
-                        resized_image = self.__resize_image(image, target_width, target_height)
+                        resized_image = self.resize_image(image, target_width, target_height)
 
                         # Полный путь к выходному файлу
                         output_path = os.path.join(output_folder, filename)

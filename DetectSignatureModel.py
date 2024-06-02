@@ -1,23 +1,10 @@
-import enum
-import random
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+
+from misc import generate_colors, PredictClass
 from ultralytics import YOLO
-
-
-def generate_colors(num_colors):
-    # Генерируем случайные цвета
-    colors = []
-    for _ in range(num_colors):
-        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        colors.append(color)
-    return colors
-
-
-class PredictClass(enum.Enum):
-    FullName = "Full-name"
-    Signature = "Signature"
+from DatasetFormer import DatasetFormer
 
 
 class DetectSignatureModel:
@@ -160,6 +147,7 @@ class DetectSignatureModel:
         return result_array, class_names
 
     def get_result_predict(self, image, visualise=False, visualise_intermediate=False):
+        image = DatasetFormer.resize_image(image)
         results_predicted, class_names = self.__predict_detect_model(image)
         unique_class_names = np.unique(class_names)
         data_name_signature = []
