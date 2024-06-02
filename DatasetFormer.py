@@ -317,8 +317,8 @@ class DatasetFormer:
                     x = x.reshape((1,) + x.shape)
 
                     i = 0
-                    for batch in datagen.flow(x, batch_size=1, save_to_dir=person_augmented_dir, save_prefix='aug',
-                                              save_format='jpg'):
+                    for _ in datagen.flow(x, batch_size=1, save_to_dir=person_augmented_dir, save_prefix='aug',
+                                          save_format='jpg'):
                         i += 1
                         if i >= num_augmentations:
                             break
@@ -458,4 +458,3 @@ class DatasetFormer:
                         dest_image_path = os.path.join(subset_class_dir, image)
                         shutil.copy2(src_image_path, dest_image_path)
         print("Разделение данных завершено. Датасет успешно создан")
-

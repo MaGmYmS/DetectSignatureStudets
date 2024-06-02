@@ -12,9 +12,9 @@ def main():
     image = cv2.imread(image_path)
     detect_model.get_result_predict(image, visualise=True)
 
-    data = detect_model.get_result_predict(image)
-    classification_signatures = classifier_model.get_result_predict(image, data, visualize=True)
-    print(classification_signatures)
+    # data = detect_model.get_result_predict(image)
+    # classification_signatures = classifier_model.get_result_predict(image, data, visualize=True)
+    # print(classification_signatures)
 
 
 if __name__ == "__main__":

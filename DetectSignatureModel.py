@@ -1,16 +1,9 @@
 import enum
-import os
 import random
-from difflib import get_close_matches
-import pytesseract
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-
-from tqdm import tqdm
-
 from ultralytics import YOLO
-from SelfDevelopment import delete_files_in_folder
 
 
 def generate_colors(num_colors):
@@ -153,7 +146,6 @@ class DetectSignatureModel:
         bboxes_ = results[0].boxes.xyxy.tolist()
         bboxes = list(map(lambda x: list(map(lambda y: int(y), x)), bboxes_))
         confs_ = results[0].boxes.conf.tolist()
-        confs = list(map(lambda x: int(x * 100), confs_))
         classes_ = results[0].boxes.cls.tolist()
         classes = list(map(lambda x: int(x), classes_))
         cls_dict = results[0].names
@@ -167,12 +159,14 @@ class DetectSignatureModel:
             result_array.append((x_min, y_min, x_max, y_max))
         return result_array, class_names
 
-    def get_result_predict(self, image, visualise=False):
+    def get_result_predict(self, image, visualise=False, visualise_intermediate=False):
         results_predicted, class_names = self.__predict_detect_model(image)
         unique_class_names = np.unique(class_names)
         data_name_signature = []
         index_in_stack = set()
         row = -1
+        image_height, image_width, _ = image.shape
+
         for class_index_1, (x_min_1, y_min_1, x_max_1, y_max_1) in enumerate(results_predicted):
             # Нашли роспись, значит где-то рядом есть имя.
             if class_index_1 not in index_in_stack and class_names[class_index_1] == PredictClass.Signature.value:
@@ -183,76 +177,33 @@ class DetectSignatureModel:
             else:
                 continue
 
+            # Определяем область поиска имени
+            search_area_x_min = max(x_min_1 - image_width // 4, 0)
+            search_area_y_min = y_min_1
+            search_area_x_max = x_min_1
+            search_area_y_max = y_min_1 + 40
+
             for class_index_2, (x_min_2, y_min_2, x_max_2, y_max_2) in enumerate(results_predicted):
-                if (abs(y_min_2 - y_min_1) < 30  # Находятся на одной прямой
-                        and class_index_2 not in index_in_stack  # Не просмотрена
-                        and abs(x_max_2 - x_min_1) < 250  # Находятся близко друг к другу
-                        and class_names[class_index_2] == PredictClass.FullName.value):  # Это имя
-                    data_name_signature[row][class_names[class_index_2]].append((x_min_2, y_min_2, x_max_2, y_max_2))
-                    index_in_stack.add(class_index_2)
+                if (class_names[class_index_2] == PredictClass.FullName.value
+                        and class_index_2 not in index_in_stack):
+                    center_full_name_x = (x_min_2 + x_max_2) // 2
+                    center_full_name_y = (y_min_2 + y_max_2) // 2
+                    # Проверяем, находится ли имя в пределах заданной области
+                    if (search_area_x_min <= center_full_name_x <= search_area_x_max and
+                            search_area_y_min <= center_full_name_y <= search_area_y_max):
+                        # Добавляем найденное имя в массив
+                        data_name_signature[row][class_names[class_index_2]].append(
+                            (x_min_2, y_min_2, x_max_2, y_max_2))
+                        index_in_stack.add(class_index_2)
+                        if visualise_intermediate:
+                            self.__visualise_intermediate_predicted(image, (x_min_2, y_min_2, x_max_2, y_max_2),
+                                                                    (x_min_1, y_min_1, x_max_1, y_max_1))
+                        break  # Имя найдено, можно выходить из цикла
 
         if visualise:
             self.__visualise_all_result_predicted(image, data_name_signature)
-        # self.__visualise_result_predicted(image, data_in_row)
         print(f"Найдено {len(data_name_signature)} сигнатур")
         return data_name_signature
-
-    def create_dataset_with_signature(self, image_dir=r"Data\data_2", base_dir=r"Data\create_dataset_with_signature",
-                                      visualise=False):
-        delete_files_in_folder(base_dir)
-        # Создаем базовую директорию, если она не существует
-        os.makedirs(base_dir, exist_ok=True)
-
-        # Проходим по всем изображениям в папке
-        for filename in os.listdir(image_dir):
-            if filename.endswith(".jpg") or filename.endswith(".jpeg") or filename.endswith(".png"):
-                print(f"\n\nОбрабатываю изображение {filename}")
-                image_path = os.path.join(image_dir, filename)
-                image = cv2.imread(image_path)
-                # Проверяем, удалось ли загрузить изображение
-                if image is not None:
-                    result_predict = self.get_result_predict(image, visualise=visualise)
-                    self.__create_dataset_with_signature(image, data=result_predict, base_dir=base_dir)
-                else:
-                    print(f"Не удалось загрузить изображение: {image_path}")
-
-    def __create_dataset_with_signature(self, image, data, base_dir="create_dataset_with_signature"):
-        for idx, item in enumerate(data):
-            if len(item[PredictClass.FullName.value]) > 0:
-                (x_min, y_min, x_max, y_max) = item[PredictClass.FullName.value][0]
-                cropped_img_full_name = image[y_min:y_max, x_min:x_max]  # Вырезаем область из изображения
-
-                # Распознаем текст на вырезанном изображении
-                text = pytesseract.image_to_string(cropped_img_full_name, lang='rus').strip()
-
-                # Находим наиболее похожее имя из списка
-                closest_match = get_close_matches(text, self.full_name_all_people_ru, n=1, cutoff=0.6)
-                if closest_match:
-                    closest_name = closest_match[0]
-                else:
-                    print(f"ФИО \"{text}\" не найдено в списке")
-                    closest_name = "Не удалось распознать"
-
-                # print(f"Распознанное имя: {text}, Найденное соответствие: {closest_name}")
-
-                # Создаем папку для данного человека
-                person_dir = os.path.join(base_dir, closest_name)
-                os.makedirs(person_dir, exist_ok=True)
-
-                # Определяем максимальный текущий индекс в папке
-                existing_files = os.listdir(person_dir)
-                indices = [int(f.split()[1].split('.')[0]) for f in existing_files if f.startswith('Signature ')]
-                next_index = max(indices, default=0) + 1
-
-                # Сохранение изображения подписи
-                (x_min, y_min, x_max, y_max) = item[PredictClass.Signature.value][0]
-                cropped_img_signature = image[y_min:y_max, x_min:x_max]  # Вырезаем область из изображения
-                cropped_img_gray_signature = cv2.cvtColor(cropped_img_signature, cv2.COLOR_BGR2GRAY)
-                save_path = os.path.join(person_dir, f"Signature {next_index}.jpg")
-                cv2.imwrite(save_path, cropped_img_gray_signature)
-                # print(f"Изображение сохранено по пути: {save_path}\n\n\n")
-            else:
-                print(f"Потеряли ФИО с подписью")
 
     # region Visualise
     @staticmethod
@@ -306,6 +257,38 @@ class DetectSignatureModel:
                 plt.imshow(image_copy)
                 plt.axis('off')
                 plt.show()
+
+    @staticmethod
+    def __visualise_intermediate_predicted(image, name_box, signature_box):
+        image_copy = image.copy()
+        # Извлечение координат рамок
+        x_min_name, y_min_name, x_max_name, y_max_name = name_box
+        x_min_sig, y_min_sig, x_max_sig, y_max_sig = signature_box
+
+        # Рисуем рамку вокруг имени
+        cv2.rectangle(image_copy, (x_min_name, y_min_name), (x_max_name, y_max_name), (0, 255, 0), 2)
+
+        # Рисуем рамку вокруг сигнатуры
+        cv2.rectangle(image_copy, (x_min_sig, y_min_sig), (x_max_sig, y_max_sig), (0, 0, 255), 2)
+
+        image_height, image_width, _ = image.shape
+        # Находим координаты области слева от сигнатуры
+        left_area_x_min = max(x_min_sig - image_width // 4, 0)
+        left_area_y_min = y_min_sig
+        left_area_x_max = x_min_sig
+        left_area_y_max = y_min_sig + 40
+
+        # Рисуем рамку вокруг области слева от сигнатуры
+        cv2.rectangle(image_copy, (left_area_x_min, left_area_y_min), (left_area_x_max, left_area_y_max), (255, 0, 0),
+                      2)
+
+        # Конвертируем изображение из BGR в RGB для правильного отображения в Matplotlib
+        image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB)
+
+        # Показываем изображение с помощью Matplotlib
+        plt.figure(figsize=(12, 8))
+        plt.imshow(image_copy)
+        plt.axis('off')
+        plt.show()
+
     # endregion
-
-

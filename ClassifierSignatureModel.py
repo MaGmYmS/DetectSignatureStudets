@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from pytesseract import pytesseract
 
 from ultralytics import YOLO
-from DetectSignatureModel import generate_colors, PredictClass
+from DetectSignatureModel import PredictClass
 
 
 class ClassifierSignatureModel:
