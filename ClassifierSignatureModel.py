@@ -143,6 +143,7 @@ class ClassifierSignatureModel:
                 # Извлечение прямоугольника из изображения
                 crop_image = image[y_min:y_max, x_min:x_max]
                 # Получение предсказания для обрезанного изображения
+                crop_image = DatasetFormer.resize_image(crop_image, 64, 64)
                 class_name, confidence = self.__get_result_predict(crop_image)
 
                 # Определение реального класса сигнатуры
