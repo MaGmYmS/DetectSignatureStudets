@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from misc import PredictClass
 from SelfDevelopment import delete_files_in_folder
+from concurrent.futures import ProcessPoolExecutor
 
 
 class DatasetFormer:
@@ -129,7 +130,10 @@ class DatasetFormer:
 
         # region Augmentation
 
-    def create_dataset_with_signature(self, image_dir=r"Data\data_2", base_dir=r"Data\create_dataset_with_signature",
+    def create_dataset_with_signature(self, image_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ"
+                                                      r"\Распознавание подписей студентов Data\Data\resized_images",
+                                      base_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
+                                               r"студентов Data\Data\create_dataset_with_signature",
                                       visualise=False):
         delete_files_in_folder(base_dir)
         # Создаем базовую директорию, если она не существует
@@ -240,46 +244,48 @@ class DatasetFormer:
 
         return white_background
 
+    def _augment_person_images(self, person, source_dir, augmented_dir, angle_value, shift_value, resize_value):
+        person_source_dir = os.path.join(source_dir, person)
+        person_augmented_dir = os.path.join(augmented_dir, person)
+
+        if not os.path.exists(person_source_dir):
+            return
+
+        os.makedirs(person_augmented_dir, exist_ok=True)
+        angles = range(-angle_value, angle_value, 1)
+        shifts = [(shift_x, shift_y) for shift_x in range(-shift_value, shift_value + 1, 2) for shift_y in
+                  range(-shift_value, shift_value + 1, 2)]
+
+        for filename in os.listdir(person_source_dir):
+            if filename.endswith(".jpg") or filename.endswith(".png"):
+                image_path = os.path.join(person_source_dir, filename)
+                image = cv2.imread(image_path)
+                if image is not None:
+                    for angle in angles:
+                        rotated_image = self.__rotate_image(image, angle)
+                        for shift in shifts:
+                            rotated_image_copy = rotated_image.copy()
+                            rotated_shifted_image = self.__shift_image(rotated_image_copy, shift)
+                            resize_rotated_shifted_image = self.resize_image(rotated_shifted_image,
+                                                                             target_width=resize_value,
+                                                                             target_height=resize_value)
+                            shift_label = f"{shift[0]}_{shift[1]}"
+                            new_filename = f"{os.path.splitext(filename)[0]}_rot{angle}__shift{shift_label}.jpg"
+                            cv2.imwrite(os.path.join(person_augmented_dir, new_filename), resize_rotated_shifted_image)
+
     def create_augmentation_folder(self, angle_value=10, shift_value=10, resize_value=64,
                                    source_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
                                               r"студентов Data\Data\create_dataset_with_signature",
                                    augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
                                                  r"студентов Data\Data\create_dataset_with_signature_augmented"):
         delete_files_in_folder(augmented_dir)
-        # Аугментации
-        angles = range(-angle_value, angle_value, 1)
-        shifts = [(shift_x, shift_y) for shift_x in range(-shift_value, shift_value + 1, 2) for
-                  shift_y in range(-shift_value, shift_value + 1, 2)]
-        # Создаем дерево каталогов и выполняем аугментации
-        for person in tqdm(self.full_name_all_people_ru):
-            person_source_dir = os.path.join(source_dir, person)
-            person_augmented_dir = os.path.join(augmented_dir, person)
-            # Проверяем, существует ли папка для этого человека
-            if not os.path.exists(person_source_dir):
-                # print(f"Папка для {person} не существует в директории {source_dir}. Пропускаем.")
-                continue
-            os.makedirs(person_augmented_dir, exist_ok=True)
 
-            for filename in os.listdir(person_source_dir):
-                if filename.endswith(".jpg") or filename.endswith(".png"):
+        with ProcessPoolExecutor() as executor:
+            futures = [executor.submit(self._augment_person_images, person, source_dir, augmented_dir, angle_value,
+                                       shift_value, resize_value) for person in self.full_name_all_people_ru]
 
-                    image_path = os.path.join(person_source_dir, filename)
-                    image = cv2.imread(image_path)
-                    if image is not None:
-
-                        # Аугментации: повороты и сдвиги
-                        for angle in angles:
-                            rotated_image = self.__rotate_image(image, angle)
-                            for shift in shifts:
-                                rotated_image_copy = rotated_image.copy()
-                                rotated_shifted_image = self.__shift_image(rotated_image_copy, shift)
-                                resize_rotated_shifted_image = self.resize_image(rotated_shifted_image,
-                                                                                 target_width=resize_value,
-                                                                                 target_height=resize_value)
-                                shift_label = f"{shift[0]}_{shift[1]}"
-                                new_filename = f"{os.path.splitext(filename)[0]}_rot{angle}__shift{shift_label}.jpg"
-                                cv2.imwrite(os.path.join(person_augmented_dir, new_filename),
-                                            resize_rotated_shifted_image)
+            for future in tqdm(futures):
+                future.result()
 
         print("Аугментация завершена.")
         self.count_files_in_folders()
@@ -368,18 +374,54 @@ class DatasetFormer:
                 except Exception as e:
                     print(f"Не удалось обработать файл {input_path}: {e}")
 
-    def count_files_in_folders(self,
-                               augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ\Распознавание подписей "
-                                             r"студентов Data\Data\create_dataset_with_signature_augmented"):
-        for person in self.full_name_all_people_ru:
-            person_dir = os.path.join(augmented_dir, person)
-            if os.path.exists(person_dir) and os.path.isdir(person_dir):
-                num_files = len([name for name in os.listdir(person_dir) if
-                                 os.path.isfile(os.path.join(person_dir, name))])
-                print(f"Папка '{person}' содержит {num_files} файлов.")
-            else:
-                print(f"Папка '{person}' не существует в директории {augmented_dir}.")
+    @staticmethod
+    def _count_files_for_person(person, augmented_dir):
+        person_dir = os.path.join(augmented_dir, person)
+        if os.path.exists(person_dir) and os.path.isdir(person_dir):
+            num_files = len([name for name in os.listdir(person_dir) if os.path.isfile(os.path.join(person_dir, name))])
+            return f"Папка '{person}' содержит {num_files} файлов."
+        else:
+            return f"Папка '{person}' не существует в директории {augmented_dir}."
+
+    def count_files_in_folders(self, augmented_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ"
+                                                   r"\Распознавание подписей студентов Data\Data"
+                                                   r"\create_dataset_with_signature_augmented"):
+        with ProcessPoolExecutor() as executor:
+            futures = [
+                executor.submit(self._count_files_for_person, person, augmented_dir)
+                for person in self.full_name_all_people_ru
+            ]
+
+            for future in tqdm(futures, total=len(self.full_name_all_people_ru)):
+                print(future.result())
+
         print("\n\n")
+
+    @staticmethod
+    def _copy_person_images(person, person_final_name, number_images, source_dir, final_dir):
+        person_source_dir = os.path.join(source_dir, person)
+        person_final_dir = os.path.join(final_dir, person_final_name)
+
+        if os.path.exists(person_source_dir) and os.path.isdir(person_source_dir):
+            os.makedirs(person_final_dir, exist_ok=True)
+            all_files = [name for name in os.listdir(person_source_dir) if
+                         os.path.isfile(os.path.join(person_source_dir, name))]
+            num_files = len(all_files)
+
+            if num_files > 0:
+                indices = np.linspace(0, num_files - 1, min(number_images, num_files), dtype=int)
+                selected_files = [all_files[i] for i in indices]
+
+                for file in selected_files:
+                    source_file = os.path.join(person_source_dir, file)
+                    destination_file = os.path.join(person_final_dir, file)
+                    shutil.copy2(source_file, destination_file)
+
+                return f"Скопировано {len(selected_files)} файлов для {person}."
+            else:
+                return f"Нет файлов для копирования в папке {person}."
+        else:
+            return f"Папка '{person}' не существует в директории {source_dir}."
 
     def copy_number_images_to_new_folder(self, number_images,
                                          source_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ"
@@ -387,38 +429,44 @@ class DatasetFormer:
                                                     r"\create_dataset_with_signature_augmented",
                                          final_dir=r"D:\я у мамы программист\3 курс 2 семестр КЗ"
                                                    r"\Распознавание подписей студентов Data\Data"
-                                                   r"\final_dataset_with_signature_augmented"):
+                                                   r"\distributed_dataset_with_signature_augmented"):
         os.makedirs(final_dir, exist_ok=True)
         delete_files_in_folder(final_dir)
         count_person = len(self.full_name_all_people_ru)
-        for i, person in enumerate(self.full_name_all_people_ru):
-            person_source_dir = os.path.join(source_dir, person)
-            person_final_dir = os.path.join(final_dir, self.full_name_all_people_en[i])
 
-            if os.path.exists(person_source_dir) and os.path.isdir(person_source_dir):
-                os.makedirs(person_final_dir, exist_ok=True)
-                all_files = [name for name in os.listdir(person_source_dir) if
-                             os.path.isfile(os.path.join(person_source_dir, name))]
-                num_files = len(all_files)
+        with ProcessPoolExecutor() as executor:
+            futures = [executor.submit(self._copy_person_images, person, self.full_name_all_people_en[i], number_images,
+                                       source_dir, final_dir) for i, person in enumerate(self.full_name_all_people_ru)]
 
-                if num_files > 0:
-                    indices = np.linspace(0, num_files - 1, min(number_images, num_files), dtype=int)
-                    selected_files = [all_files[i] for i in indices]
+            for i, future in enumerate(futures):
+                print(f"({i}/{count_person}) {future.result()}")
 
-                    for file in selected_files:
-                        source_file = os.path.join(person_source_dir, file)
-                        destination_file = os.path.join(person_final_dir, file)
-                        shutil.copy2(source_file, destination_file)
-
-                    print(f"({i}/{count_person}) Скопировано {len(selected_files)} файлов для {person}.")
-                else:
-                    print(f"({i}/{count_person}) Нет файлов для копирования в папке {person}.")
-            else:
-                print(f"({i}/{count_person}) Папка '{person}' не существует в директории {source_dir}.")
         print("\n\n")
 
     @staticmethod
-    def split_dataset(source_dir, dest_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
+    def _split_class_dataset(class_name, class_dir, train_ratio, val_ratio, test_ratio, train_dir, val_dir, test_dir):
+        images = os.listdir(class_dir)
+        random.shuffle(images)
+
+        train_split = int(train_ratio * len(images))
+        val_split = int(val_ratio * len(images))
+
+        train_images = images[:train_split]
+        val_images = images[train_split:train_split + val_split]
+        test_images = images[train_split + val_split:]
+
+        for image_set, subset_dir in zip([train_images, val_images, test_images], [train_dir, val_dir, test_dir]):
+            subset_class_dir = os.path.join(subset_dir, class_name)
+            os.makedirs(subset_class_dir, exist_ok=True)
+
+            for image in image_set:
+                src_image_path = os.path.join(class_dir, image)
+                dest_image_path = os.path.join(subset_class_dir, image)
+                shutil.copy2(src_image_path, dest_image_path)
+
+        return f"Класс '{class_name}' успешно разделен."
+
+    def split_dataset(self, source_dir, dest_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
         assert train_ratio + val_ratio + test_ratio == 1, "Соотношения должны суммироваться до 1"
         delete_files_in_folder(dest_dir)
         if not os.path.exists(dest_dir):
@@ -433,28 +481,19 @@ class DatasetFormer:
         os.makedirs(test_dir, exist_ok=True)
 
         class_names = []
-        for class_name in tqdm(os.listdir(source_dir)):
-            class_names.append(class_name)
-            class_dir = os.path.join(source_dir, class_name)
+        futures = []
 
-            if os.path.isdir(class_dir):
-                images = os.listdir(class_dir)
-                random.shuffle(images)
+        with ProcessPoolExecutor() as executor:
+            for class_name in os.listdir(source_dir):
+                class_names.append(class_name)
+                class_dir = os.path.join(source_dir, class_name)
 
-                train_split = int(train_ratio * len(images))
-                val_split = int(val_ratio * len(images))
+                if os.path.isdir(class_dir):
+                    future = executor.submit(self._split_class_dataset, class_name, class_dir, train_ratio, val_ratio,
+                                             test_ratio, train_dir, val_dir, test_dir)
+                    futures.append(future)
 
-                train_images = images[:train_split]
-                val_images = images[train_split:train_split + val_split]
-                test_images = images[train_split + val_split:]
+            for future in futures:
+                print(future.result())
 
-                for image_set, subset_dir in zip([train_images, val_images, test_images],
-                                                 [train_dir, val_dir, test_dir]):
-                    subset_class_dir = os.path.join(subset_dir, class_name)
-                    os.makedirs(subset_class_dir, exist_ok=True)
-
-                    for image in image_set:
-                        src_image_path = os.path.join(class_dir, image)
-                        dest_image_path = os.path.join(subset_class_dir, image)
-                        shutil.copy2(src_image_path, dest_image_path)
-        print("Разделение данных завершено. Датасет успешно создан")
+        print("Разделение данных завершено. Датасет успешно создан.\n\n")

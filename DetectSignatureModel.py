@@ -8,7 +8,7 @@ from DatasetFormer import DatasetFormer
 
 
 class DetectSignatureModel:
-    def __init__(self, number_train):
+    def __init__(self, number_train=""):
         my_best_model = f"runs/detect/train{number_train}/weights/best.pt"  # Загружаем модель
         model = YOLO(my_best_model)
         self.model = model
@@ -169,7 +169,7 @@ class DetectSignatureModel:
             search_area_x_min = max(x_min_1 - image_width // 4, 0)
             search_area_y_min = y_min_1
             search_area_x_max = x_min_1
-            search_area_y_max = y_min_1 + 40
+            search_area_y_max = y_max_1
 
             for class_index_2, (x_min_2, y_min_2, x_max_2, y_max_2) in enumerate(results_predicted):
                 if (class_names[class_index_2] == PredictClass.FullName.value
@@ -264,7 +264,7 @@ class DetectSignatureModel:
         left_area_x_min = max(x_min_sig - image_width // 4, 0)
         left_area_y_min = y_min_sig
         left_area_x_max = x_min_sig
-        left_area_y_max = y_min_sig + 40
+        left_area_y_max = y_max_sig
 
         # Рисуем рамку вокруг области слева от сигнатуры
         cv2.rectangle(image_copy, (left_area_x_min, left_area_y_min), (left_area_x_max, left_area_y_max), (255, 0, 0),
